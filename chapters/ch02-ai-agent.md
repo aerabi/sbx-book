@@ -1,6 +1,6 @@
 \newpage
 
-# Sandboxes and AI Agents
+# Sandboxes, AI Agents, and Kits
 
 
 Couldn't we have built that PDF inside a regular Docker container?
@@ -55,20 +55,22 @@ In the Codex session, enter:
 ```text
 Read the project README and draft RELEASE-NOTES.md for version 1.1.0,
 Christmas Edition. Describe only features supported by the files here.
-Do not commit or push. Leave the draft for my review.
+Create a pull request on GitHub for my review.
 ```
 
-Review the result in the sandbox before accepting changes through the clone-mode Git workflow. The host working tree remains unchanged.
+As we have used clone mode, Codex can edit the working tree without affecting the host. So, we need Git configuration for Codex to create a pull request on GitHub for use to review the changes. On the **host**, run:
 
-But the README does not tell the whole release story. We also want Codex to read our closed GitHub issues and use them to improve the draft.
+```bash
+$ sbx secret set github \
+  --sandbox christmas-codex \
+  -t "$(gh auth token)"
+```
 
-Now it needs a GitHub client, API access, and perhaps a credential for a private repository. We want it to read issues. We do not want it to delete the repository while tidying things up!
-
-“Please don't delete my repository” belongs in the conversation. It is not an access control.
+Now Codex can create a pull request, and you can check the changes out on your host machine.
 
 ## From Templates to Kits
 
-In Chapter 1, our Dockerfile solved the tool-installation problem. Now we have a permissions problem. Codex needs a GitHub client, but installing the client does not tell us what it should be allowed to do.
+In Chapter 1, our Dockerfile solved the tool-installation problem. Now we have a permissions' problem. Codex needs a GitHub client, but installing the client does not tell us what it should be allowed to do.
 
 For the release-notes task, Codex needs to read GitHub issues. It does not need to create issues, change repository settings, or delete a repository. We will give it the GitHub CLI and define a network policy for the reads it needs.
 
@@ -91,7 +93,7 @@ Record the commit identifier. That is the version you reviewed. If you clone the
 
 The tutorial's descriptor includes a denial for repository DELETE requests:
 
-```yaml
+```yaml {.numberLines}
         deny:
           - hosts: [api.github.com]
             methods: [DELETE]
