@@ -266,9 +266,86 @@ This brings in committed host changes without a round trip through GitHub. It do
 
 For rapid editing of the same files, a direct workspace mount may suit the task better. Remember the file we created in Chapter 1: the agent can overwrite or delete shared files too. Choose the workflow with that tradeoff in mind.
 
-The toolchain is another source of friction. Our Codex sandbox did not inherit the Pandoc, XeLaTeX, and fonts installed in `christmas-shell`. Installing an agent does not magically install the book's build environment! For a writing workflow that requires PDF verification, package those dependencies with a compatible Codex workload or document-toolchain mixin, including the fonts named by the book. The shell template from Chapter 1 alone does not establish that composition.
+## Let Codex Compile the Book
 
-Alternatively, have a PR check compile the PDF in a controlled build environment and publish it as a review artifact. Keep credentials out of builds of untrusted contributions. Either way, test the actual `make pdf` command before relying on the workflow. An HTML preview is useful, but it does not verify fonts, page breaks, or LaTeX compilation. The agent should report which outputs it built and which it could not.
+The toolchain is another source of friction. Our Codex sandbox did not inherit the Pandoc, XeLaTeX, and fonts installed in `christmas-shell`. While writing this chapter, I asked Codex to build the PDF. It could generate HTML, EPUB, and Word documents, but `make pdf` stopped at `latexmk not found`.
+
+So, we are writing a book about building a book in a sandbox, and the agent helping write the book cannot build the book. Very meta. Let's fix that!
+
+### Reuse the Dockerfile
+
+The Dockerfile from Chapter 1 already describes the document toolchain. Its first two lines are:
+
+```dockerfile
+ARG BASE_IMAGE=docker.io/sbx/shell-image:latest
+FROM ${BASE_IMAGE}
+```
+
+An argument declared before `FROM` can select the base image. Without an override, we get the shell environment from Chapter 1. With a compatible Codex sandbox image, we keep Codex and add the same build tools. There is no need to maintain two package lists.
+
+The companion source includes the Dockerfile and Fontconfig configuration in `sbx-template/`. It installs `make`, Pandoc, XeLaTeX, `latexmk`, the extra LaTeX packages used by our template, Fira Code, and TeX Live's font bundle. The Fontconfig file exposes TeX Live's OpenType and TrueType directories, including Libertinus, to applications that select fonts by family name.
+
+Keep the base image's entrypoint and startup configuration intact. Our Dockerfile changes the user to root for installation, then returns to `agent`. It assumes a Debian-based sandbox image with that user. A generic image containing the Codex binary is not necessarily a compatible sandbox template.
+
+On the **host**, select the Codex image for your installed sbx release. The image definition in the guest used for this book identifies `dhi.io/codex` version `0.169.0`; check the reference for your release rather than assuming it stays current. From the book's repository root:
+
+```bash
+$ docker pull dhi.io/codex:0.169.0
+$ docker image inspect dhi.io/codex:0.169.0 --format '{{json .RepoDigests}}'
+$ docker build \
+  --build-arg BASE_IMAGE=dhi.io/codex:0.169.0 \
+  -t christmas-codex-tools:1 ./sbx-template
+$ docker image save christmas-codex-tools:1 -o christmas-codex-tools-1.tar
+$ sbx template load christmas-codex-tools-1.tar
+```
+
+Record the base digest and package versions. To pin the base on a later rebuild, pass the reviewed `dhi.io/codex@sha256:...` reference as `BASE_IMAGE`. A digest identifies the base; the apt repositories still change, so this is a repeatable recipe rather than a guarantee of byte-for-byte reproduction.
+
+The host's builder downloads the packages. The runtime network rules from the GitHub exercise do not authorize those downloads, and baking tools into an image does not grant GitHub permissions.
+
+### Start a Writing Sandbox
+
+Authenticate on the **host** before creating the new sandbox, as in the earlier Codex exercise. Then, from the book's Git checkout:
+
+```bash
+$ sbx create --name christmas-codex-book --clone \
+  --template christmas-codex-tools:1 --pull never codex .
+$ sbx policy ls christmas-codex-book --wide
+$ sbx run --name christmas-codex-book
+```
+
+This is a new sandbox. Preserve any unfinished work before switching to it. Its private clone starts from the host checkout; it does not inherit uncommitted edits from another sandbox. Sandbox-scoped credentials and policy rules also need to be configured for the new name. The template supplies the filesystem, while the workload and runtime configuration supply the surrounding behavior [@dockerKitAuthoring].
+
+This exercise verifies local writing and compilation. If you also need the GitHub integration, verify the CLI, credential binding, and the allowed and denied requests in that resulting environment before delegating publication. A document toolchain is not evidence that the earlier GitHub boundary has carried over.
+
+Inside the **sandbox**, check the actual tools and font matches:
+
+```bash
+$ codex --version
+$ pandoc --version
+$ xelatex --version
+$ latexmk --version
+$ fc-match 'Libertinus Serif'
+$ fc-match 'Fira Code Retina'
+$ make pdf
+```
+
+`fc-match` can silently return a substitute font, so read its output. The names must match the families in `chapters/a-variables.md`. With the companion recipe, those fonts come from installed packages; we no longer need to copy my laptop's entire font directory into each new environment.
+
+I tested this package set in the running Codex sandbox while writing these pages. After removing the unused placeholder abstract from the book's metadata, `make pdf` completed with Pandoc 3.1.11.1, XeTeX from TeX Live 2025/dev/Debian, and latexmk 4.86. The agent could finally build the book it was helping write! That verifies the toolchain in this guest; building the new image and starting a fresh sandbox are separate checks.
+
+Ask Codex to edit a paragraph, run `make pdf`, and report the result. This checks the workflow we actually want: the agent can both change the manuscript and verify its typesetting. An HTML preview cannot establish that the fonts, page breaks, or LaTeX compilation are correct.
+
+Clone mode leaves the PDF inside the sandbox too. Copy the review artifact to the **host**:
+
+```bash
+$ sbx cp christmas-codex-book:/home/mohammad-ali/Dev/Code/sbx-book/build/pdf/book.pdf \
+  ./book-review.pdf
+```
+
+Replace the absolute guest path with the path printed by `pwd` in your sandbox, followed by `/build/pdf/book.pdf`. Yes, that is my book directory again. Yours will probably be less personally identifying!
+
+A direct mount would make the PDF appear on the host immediately, at the cost of giving the agent write access to that workspace. A PR build can also publish a PDF review artifact. The useful choice is the one that makes review practical while keeping the access understandable.
 
 ## Looking Forward to 2027
 
@@ -284,7 +361,7 @@ Treat local and cloud sandboxes as separate deployments. This chapter describes 
 
 ## Conclusion
 
-In Chapter 1, a toolchain installed under `/tmp` led us to a reusable sandbox environment. In this chapter, we gave Codex a release-notes task, then added a GitHub client and the permissions needed to read issues and open a PR. We inspected the mixin, checked the effective policy, and combined a limited credential with protected branches. Then we let the agent publish a release-notes proposal for review, without granting merge or DELETE endpoints.
+In Chapter 1, a toolchain installed under `/tmp` led us to a reusable sandbox environment. In this chapter, we gave Codex a release-notes task, then added a GitHub client and the permissions needed to read issues and open a PR. We inspected the mixin, checked the effective policy, and combined a limited credential with protected branches. Then we let the agent publish a release-notes proposal for review, without granting merge or DELETE endpoints. Finally, we reused the document-toolchain Dockerfile with a Codex base so the writing environment could include the PDF tools too.
 
 For each task, ask two questions: can the agent complete the work, and what can it reach while trying? The answers guide the tools, workspace access, network rules, and credentials we provide.
 
@@ -292,7 +369,7 @@ Give the agent the tools it needs, keep its permissions understandable, and revi
 
 ## Exercises
 
-The first three exercises revisit the environment from Chapter 1. The last two apply the agent boundaries from this chapter.
+The first three exercises revisit the environment from Chapter 1. The remaining exercises apply the agent boundaries and writing environment from this chapter.
 
 1. **Prove the mount behavior.** Create a harmless file from `christmas-shell` and locate it on the host. Repeat an edit in a disposable Git repository using clone mode. Explain why the host working tree behaves differently.
 2. **Test the network boundary.** Record the effective policy for one sandbox. Demonstrate a required destination succeeding and an unrelated destination being denied. Explain what you would investigate if both succeed.
@@ -300,11 +377,13 @@ The first three exercises revisit the environment from Chapter 1. The last two a
 4. **Constrain an agent.** Compose Codex with the adapted GitHub mixin. Prepare a working branch and a restricted credential. Demonstrate that reading issues, updating RELEASE-NOTES.md, and opening a PR are allowed, while repository and file DELETE, issue POST, PR merge, and unrestricted Git push requests are denied. Open a real test PR and inspect its diff. Explain why protected branches and token permissions still matter. Do not send a real DELETE request.
 5. **Trace an attempted exfiltration.** Suppose a dependency can read a secret in the workspace. Consider an unapproved destination and an approved API that accepts writes. Which controls help in each case? Which permission must be removed to prevent the secret being read at all?
 
+6. **Build the book with Codex.** Use the shared Dockerfile with a compatible Codex base. Record the base digest, build the template, and create a new writing sandbox. Verify the named fonts and compile the actual book with `make pdf`. Copy the PDF to the host. Explain which tools, credentials, and policies came from the template and which required separate configuration.
+
 After preserving anything you need, exit interactive sessions and remove only the exercise sandboxes you created across these two chapters. Omit any names you did not create:
 
 ```bash
 $ sbx rm christmas-shell christmas-snapshot christmas-built \
-  christmas-codex christmas-codex-gh
+  christmas-codex christmas-codex-gh christmas-codex-book
 ```
 
 If you completed the optional clone exercise, review its work and remove `christmas-review` separately. Saved templates and host workspace files have separate lifecycles. Removing a sandbox neither resets policy nor removes every artifact produced during the exercises.

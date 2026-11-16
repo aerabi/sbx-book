@@ -7,8 +7,6 @@ lang: en-US
 mainlang: english
 otherlang: english
 tags: [pandoc, book, my-book, etc]
-abstract: |
-  Your summary.
 linkReferences: true
 reference-section-title: References
 listing-options:
