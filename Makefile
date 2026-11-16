@@ -8,6 +8,7 @@ BUILD = build
 MAKEFILE = Makefile
 OUTPUT_FILENAME = book
 METADATA = metadata.yaml
+BIBLIOGRAPHY = references.bib
 CHAPTERS = chapters/*.md
 FRONTMATTER = frontmatter.tex
 TOC = --toc --toc-depth 2
@@ -32,7 +33,7 @@ CONTENT_FILTERS = tee # Use this to add sed filters or other piped commands
 
 # Combined arguments
 
-ARGS = $(TOC) $(MATH_FORMULAS) $(FILTER_ARGS) $(DEBUG_ARGS)
+ARGS = $(TOC) $(MATH_FORMULAS) --citeproc --bibliography $(BIBLIOGRAPHY) $(FILTER_ARGS) $(DEBUG_ARGS)
 
 PANDOC_COMMAND = pandoc
 
@@ -41,7 +42,7 @@ PANDOC_COMMAND = pandoc
 DOCX_ARGS = $(METADATA_ARGS) --standalone --reference-doc templates/docx.docx
 EPUB_ARGS = $(METADATA_ARGS) --template templates/epub.html --css templates/epub.css --epub-cover-image $(COVER_IMAGE) --number-sections --to epub3
 HTML_ARGS = $(METADATA_ARGS) --template templates/html.html --standalone --to html5
-PDF_ARGS = --template templates/pdf.latex \
+PDF_ARGS = $(METADATA_ARGS) --template templates/pdf.latex \
            --lua-filter templates/indexer.lua \
            --pdf-engine latexmk \
            --pdf-engine-opt=-pdf \
@@ -53,7 +54,7 @@ PDF_ARGS = --template templates/pdf.latex \
 
 # Per-format file dependencies
 
-BASE_DEPENDENCIES = $(MAKEFILE) $(CHAPTERS) $(METADATA) $(IMAGES) $(TEMPLATES)
+BASE_DEPENDENCIES = $(MAKEFILE) $(CHAPTERS) $(METADATA) $(BIBLIOGRAPHY) $(IMAGES) $(TEMPLATES)
 DOCX_DEPENDENCIES = $(BASE_DEPENDENCIES)
 EPUB_DEPENDENCIES = $(BASE_DEPENDENCIES)
 HTML_DEPENDENCIES = $(BASE_DEPENDENCIES)
