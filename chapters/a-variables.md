@@ -1,7 +1,7 @@
 ---
 documentclass: book
 fontsize: 11pt
-subtitle: The Open Book by Docker Captains
+subtitle: Secure AI Agents with SBX, Kits, and Cloud
 frontispiece-image: img/battle.png
 frontispiece-caption: The battle for secure realms begins!
 classoption:

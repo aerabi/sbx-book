@@ -103,7 +103,7 @@ $endif$
 $if(geometry)$
 \usepackage[$for(geometry)$$geometry$$sep$,$endfor$]{geometry}
 $else$
-\usepackage[paperwidth=7.5in, paperheight=9.25in, left=1in, right=1in, top=1.3in, bottom=1in]{geometry}
+\usepackage[paperwidth=6in, paperheight=9in, left=1in, right=1in, top=1.3in, bottom=1in]{geometry}
 $endif$
 
 \usepackage{xpatch}
