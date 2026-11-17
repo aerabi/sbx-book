@@ -460,15 +460,8 @@ $if(title)$
 $endif$
 $if(subtitle)$
 $if(beamer)$
-$else$
-\usepackage{etoolbox}
-\makeatletter
-\providecommand{\subtitle}[1]{% add subtitle to \maketitle
-  \apptocmd{\@title}{\par {\large #1 \par}}{}{}
-}
-\makeatother
-$endif$
 \subtitle{$subtitle$}
+$endif$
 $endif$
 \author{$for(author)$$author$$sep$ \and $endfor$}
 \date{$date$}
@@ -561,7 +554,10 @@ $if(title)$
 $if(beamer)$
 \frame{\titlepage}
 $else$
+$if(title-in-frontmatter)$
+$else$
 \maketitle
+$endif$
 $endif$
 $if(abstract)$
 \begin{abstract}

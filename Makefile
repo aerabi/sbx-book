@@ -43,6 +43,7 @@ DOCX_ARGS = $(METADATA_ARGS) --standalone --reference-doc templates/docx.docx
 EPUB_ARGS = $(METADATA_ARGS) --template templates/epub.html --css templates/epub.css --epub-cover-image $(COVER_IMAGE) --number-sections --to epub3
 HTML_ARGS = $(METADATA_ARGS) --template templates/html.html --standalone --to html5
 PDF_ARGS = $(METADATA_ARGS) --template templates/pdf.latex \
+           --metadata title-in-frontmatter=true \
            --lua-filter templates/indexer.lua \
            --pdf-engine latexmk \
            --pdf-engine-opt=-pdf \
@@ -58,7 +59,7 @@ BASE_DEPENDENCIES = $(MAKEFILE) $(CHAPTERS) $(METADATA) $(BIBLIOGRAPHY) $(IMAGES
 DOCX_DEPENDENCIES = $(BASE_DEPENDENCIES)
 EPUB_DEPENDENCIES = $(BASE_DEPENDENCIES)
 HTML_DEPENDENCIES = $(BASE_DEPENDENCIES)
-PDF_DEPENDENCIES = $(BASE_DEPENDENCIES)
+PDF_DEPENDENCIES = $(BASE_DEPENDENCIES) $(FRONTMATTER)
 
 # Detected Operating System
 
