@@ -1,6 +1,6 @@
-# 🐳 Docker Security Book Template
+# Docker Sandboxes in Action
 
-> *An open-source book template for the community, based on the book "Docker and Kubernetes Security" by Mohammad-Ali A'râbi.*
+> *Secure AI Agents with SBX, Kits, and Cloud, by Mohammad-Ali A'râbi.*
 
 ---
 
@@ -18,6 +18,9 @@ make epub
 ```
 
 The book is built in the `build` directory.
+
+EPUB builds use the book metadata for their title page. To add an SBX book
+cover when it is ready, run `make epub COVER_IMAGE=/path/to/sbx-cover.png`.
 
 ## Sandbox templates
 

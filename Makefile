@@ -15,7 +15,8 @@ TOC = --toc --toc-depth 2
 METADATA_ARGS = --metadata-file $(METADATA)
 IMAGES = $(shell find img/ -type f)
 TEMPLATES = $(shell find templates/ -type f)
-COVER_IMAGE = img/cover.png
+COVER_IMAGE ?=
+EPUB_COVER_ARG = $(if $(COVER_IMAGE),--epub-cover-image $(COVER_IMAGE))
 MATH_FORMULAS = --webtex
 
 # Chapters content
@@ -40,7 +41,7 @@ PANDOC_COMMAND = pandoc
 # Per-format options
 
 DOCX_ARGS = $(METADATA_ARGS) --standalone --reference-doc templates/docx.docx
-EPUB_ARGS = $(METADATA_ARGS) --template templates/epub.html --css templates/epub.css --epub-cover-image $(COVER_IMAGE) --number-sections --to epub3
+EPUB_ARGS = $(METADATA_ARGS) --template templates/epub.html --css templates/epub.css $(EPUB_COVER_ARG) --number-sections --to epub3
 HTML_ARGS = $(METADATA_ARGS) --template templates/html.html --standalone --to html5
 PDF_ARGS = $(METADATA_ARGS) --template templates/pdf.latex \
            --metadata title-in-frontmatter=true \
@@ -57,7 +58,7 @@ PDF_ARGS = $(METADATA_ARGS) --template templates/pdf.latex \
 
 BASE_DEPENDENCIES = $(MAKEFILE) $(CHAPTERS) $(METADATA) $(BIBLIOGRAPHY) $(IMAGES) $(TEMPLATES)
 DOCX_DEPENDENCIES = $(BASE_DEPENDENCIES)
-EPUB_DEPENDENCIES = $(BASE_DEPENDENCIES)
+EPUB_DEPENDENCIES = $(BASE_DEPENDENCIES) $(COVER_IMAGE)
 HTML_DEPENDENCIES = $(BASE_DEPENDENCIES)
 PDF_DEPENDENCIES = $(BASE_DEPENDENCIES) $(FRONTMATTER)
 
