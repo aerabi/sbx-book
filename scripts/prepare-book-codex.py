@@ -1,0 +1,75 @@
+#!/usr/bin/env python3
+"""Derive a local workload from a reviewed Codex descriptor, without GitHub grants."""
+import argparse
+from copy import deepcopy
+from pathlib import Path
+import re
+import sys
+
+import yaml
+
+GITHUB_HOSTS = {"api.github.com", "github.com", "uploads.github.com"}
+
+
+def prepare(source):
+    result = deepcopy(source)
+    if result.get("kind") != "workload" or result.get("schemaVersion") != "3":
+        raise ValueError("Expected a v3 workload descriptor")
+    version = str(result.get("version", ""))
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        raise ValueError("Expected the installed workload's concrete Codex version")
+    found = False
+    for cap in result.get("capabilities", []):
+        if not cap.get("type", "").startswith("com.docker.sandbox/network-policy@"):
+            continue
+        found = True
+        for phase in cap.get("config", {}).values():
+            entries = []
+            for entry in phase.get("allow", []):
+                hosts = [entry] if isinstance(entry, str) else entry["hosts"]
+                # Fail closed rather than guessing how a runtime expands a wildcard.
+                if any("*" in host for host in hosts):
+                    raise ValueError("Review wildcard workload grants manually")
+                kept = [h for h in hosts if h.lower().split(":", 1)[0] not in GITHUB_HOSTS]
+                if kept:
+                    if isinstance(entry, str):
+                        entries.append(entry)
+                    else:
+                        entries.append({**entry, "hosts": kept})
+            phase["allow"] = entries
+    if not found:
+        raise ValueError("Workload has no network capability to review")
+    result["displayName"] = "Codex for SBX Book"
+    result["description"] = "Derived Codex workload; the book mixin supplies GitHub authority"
+    for field in ("build", "kits"):
+        result.pop(field, None)
+    result["dockerfile"] = "codex.dockerfile"
+    # This recipe inherits the versioned image instead of rebuilding Codex itself.
+    result.get("args", {}).pop("version", None)
+    return result, version
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("source", type=Path, help="Reviewed installed Codex kit.yaml")
+    parser.add_argument("output", type=Path, help="New local workload directory")
+    args = parser.parse_args()
+    try:
+        result, version = prepare(yaml.safe_load(args.source.read_text()))
+        # Do not overwrite an existing recipe or another author's changes.
+        args.output.mkdir(parents=True, exist_ok=False)
+        (args.output / "kit.yaml").write_text(
+            "# syntax=docker/sandbox-kit:3\n" + yaml.safe_dump(result, sort_keys=False)
+        )
+        (args.output / "codex.dockerfile").write_text(
+            "# syntax=docker/dockerfile:1\n" + f"FROM dhi.io/codex:{version}\n"
+        )
+        print(f"Prepared {args.output}; review its descriptor and base-image digest before use.")
+    except (ValueError, OSError, yaml.YAMLError) as error:
+        print(str(error), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

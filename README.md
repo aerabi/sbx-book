@@ -44,6 +44,13 @@ See Chapter 2 for sandbox creation, font verification, PDF compilation, and
 copying the artifact back from clone mode. Credentials and runtime network
 policy must be configured separately.
 
+## Repository GitHub mixin
+
+The [book GitHub mixin](kits/book-github/README.md) includes the concrete
+repository policy, credential binding, agent context, and host test matrix.
+Use the documented workload preparation step: The built-in Codex workload's
+broader GitHub grant would otherwise widen the mixin's permissions.
+
 ## Install Pandoc
 
 On Ubuntu, install Pandoc and Tex Live:
