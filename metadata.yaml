@@ -6,10 +6,9 @@ rights: Copyright © 2027 Mohammad-Ali A'râbi
 lang: en-US
 mainlang: english
 otherlang: english
-tags: [pandoc, book, my-book, etc]
-abstract: |
-  Your summary.
+tags: [docker, sandboxes, sbx, ai-agents, security]
 linkReferences: true
+reference-section-title: References
 listing-options:
   smallcode:
     environment: smallcode

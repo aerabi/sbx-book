@@ -1,0 +1,46 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+kind: mixin
+displayName: SBX Book GitHub
+description: Propose release notes for aerabi/sbx-book through the REST API
+sourceUrl: https://github.com/aerabi/sbx-book
+
+# Declaration-only: the compatible Codex workload already supplies gh.
+capabilities:
+  - type: com.docker.sandbox/network-policy@2
+    config:
+      runtime:
+        allow:
+          - hosts: [api.github.com]
+            methods: [GET, HEAD]
+            paths: [/repos/aerabi/sbx-book, /repos/aerabi/sbx-book/**]
+          - hosts: [api.github.com]
+            methods: [PUT]
+            paths: [/repos/aerabi/sbx-book/contents/RELEASE-NOTES.md]
+          - hosts: [api.github.com]
+            methods: [POST]
+            paths: [/repos/aerabi/sbx-book/pulls]
+        deny:
+          - github.com
+          - uploads.github.com
+          - hosts: [api.github.com]
+            methods: [DELETE, PATCH]
+          - hosts: [api.github.com]
+            methods: [POST]
+            paths: [/graphql]
+
+  - type: com.docker.sandbox/credential@1
+    description: Repository-scoped GitHub token, injected only into the REST API
+    optional: true
+    config:
+      service: github
+      phase: runtime
+      apiKey:
+        name: GH_TOKEN
+        proxyManaged: true
+        inject:
+          - {domain: api.github.com, header: Authorization, format: "Bearer %s"}
+
+  - type: com.docker.sandbox/agent-context@1
+    config:
+      contentFile: ./github-context.md

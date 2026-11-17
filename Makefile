@@ -8,13 +8,15 @@ BUILD = build
 MAKEFILE = Makefile
 OUTPUT_FILENAME = book
 METADATA = metadata.yaml
+BIBLIOGRAPHY = references.bib
 CHAPTERS = chapters/*.md
 FRONTMATTER = frontmatter.tex
 TOC = --toc --toc-depth 2
 METADATA_ARGS = --metadata-file $(METADATA)
 IMAGES = $(shell find img/ -type f)
 TEMPLATES = $(shell find templates/ -type f)
-COVER_IMAGE = img/cover.png
+COVER_IMAGE ?=
+EPUB_COVER_ARG = $(if $(COVER_IMAGE),--epub-cover-image $(COVER_IMAGE))
 MATH_FORMULAS = --webtex
 
 # Chapters content
@@ -32,16 +34,17 @@ CONTENT_FILTERS = tee # Use this to add sed filters or other piped commands
 
 # Combined arguments
 
-ARGS = $(TOC) $(MATH_FORMULAS) $(FILTER_ARGS) $(DEBUG_ARGS)
+ARGS = $(TOC) $(MATH_FORMULAS) --citeproc --bibliography $(BIBLIOGRAPHY) $(FILTER_ARGS) $(DEBUG_ARGS)
 
 PANDOC_COMMAND = pandoc
 
 # Per-format options
 
 DOCX_ARGS = $(METADATA_ARGS) --standalone --reference-doc templates/docx.docx
-EPUB_ARGS = $(METADATA_ARGS) --template templates/epub.html --css templates/epub.css --epub-cover-image $(COVER_IMAGE) --number-sections --to epub3
+EPUB_ARGS = $(METADATA_ARGS) --template templates/epub.html --css templates/epub.css $(EPUB_COVER_ARG) --number-sections --to epub3
 HTML_ARGS = $(METADATA_ARGS) --template templates/html.html --standalone --to html5
-PDF_ARGS = --template templates/pdf.latex \
+PDF_ARGS = $(METADATA_ARGS) --template templates/pdf.latex \
+           --metadata title-in-frontmatter=true \
            --lua-filter templates/indexer.lua \
            --pdf-engine latexmk \
            --pdf-engine-opt=-pdf \
@@ -53,11 +56,11 @@ PDF_ARGS = --template templates/pdf.latex \
 
 # Per-format file dependencies
 
-BASE_DEPENDENCIES = $(MAKEFILE) $(CHAPTERS) $(METADATA) $(IMAGES) $(TEMPLATES)
+BASE_DEPENDENCIES = $(MAKEFILE) $(CHAPTERS) $(METADATA) $(BIBLIOGRAPHY) $(IMAGES) $(TEMPLATES)
 DOCX_DEPENDENCIES = $(BASE_DEPENDENCIES)
-EPUB_DEPENDENCIES = $(BASE_DEPENDENCIES)
+EPUB_DEPENDENCIES = $(BASE_DEPENDENCIES) $(COVER_IMAGE)
 HTML_DEPENDENCIES = $(BASE_DEPENDENCIES)
-PDF_DEPENDENCIES = $(BASE_DEPENDENCIES)
+PDF_DEPENDENCIES = $(BASE_DEPENDENCIES) $(FRONTMATTER)
 
 # Detected Operating System
 
