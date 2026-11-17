@@ -2,7 +2,10 @@
 
 Run these from the **host**, in the `aerabi/sbx-book` checkout on
 `complete-chapter-2`. These checks need the host `sbx` CLI and daemon.
-The writing guest cannot run them. All checkboxes below are pending.
+The writing guest cannot run them. See [HOST-TEST-RESULTS.md](HOST-TEST-RESULTS.md)
+for the 2026-11-17 host run, including the helper failure, diagnostic policy
+results, and remaining authentication blockers. Checkboxes below retain the
+original acceptance sequence; diagnostic workarounds do not mark it passed.
 
 Already passed in the writing guest: Official Kit schema validation, six
 offline tests covering twenty request cases, and PDF/HTML/EPUB/DOCX builds.
@@ -34,10 +37,18 @@ do not replace an existing writing sandbox.
   from the installed guest descriptor; confirm it suits the host sbx release.
 
 ```bash
+docker version  # Must include a reachable server
+docker login dhi.io
 docker pull dhi.io/codex:0.169.0
 docker image inspect dhi.io/codex:0.169.0 --format '{{json .RepoDigests}}' \
   > "$book_test_dir/codex-base-digests.txt"
 ```
+
+If Docker reports a missing daemon socket, start Docker Desktop or the host
+Docker Engine service and verify the selected context. On Linux with Docker
+Desktop installed, use `systemctl --user start docker-desktop`. An sbx login
+is separate from host Docker's registry login. A registry 401 must be resolved
+before continuing.
 
 Registry requests from the writing guest previously required host network
 approval. If a request is blocked, retain its explanation and resolve that
@@ -66,6 +77,11 @@ sbx create --name book-pdf-check --clone \
 sbx policy ls book-pdf-check --wide
 sbx run --name book-pdf-check
 ```
+
+Review and authorize the intended credential destinations in the interactive
+creation/startup prompts. If output says "no binding authorizes" a service,
+its stored secret was not injected. Re-run interactively to review the prompt;
+do not use `--no-input` for this authentication acceptance test.
 
 Expected: Codex starts without needing copied guest credential files.
 Use another host terminal for `sbx exec` while it is running.
@@ -103,6 +119,9 @@ python3 -m venv "$book_test_dir/venv"
 python3 -m pip install PyYAML jsonschema
 ```
 
+If `venv` reports missing `ensurepip`, install the distribution's venv package
+(for example, `python3-venv` on Debian/Ubuntu), then retry environment creation.
+
 - [ ] Export and review the installed workload descriptor. The example
   source sandbox is the author's current writing sandbox; substitute an
   existing Codex sandbox if necessary.
@@ -118,6 +137,8 @@ cat "$book_test_dir/book-codex/codex.dockerfile"
 
 Expected: GitHub host allow grants are removed from the derived workload.
 OpenAI authentication, other capabilities, and startup hooks are preserved.
+Generated `deb/` entries in `provides` are removed so the builder can derive
+package metadata from the image; other provides remain intact.
 Review the generated base reference and its digest. The helper deliberately
 refuses to overwrite an existing output directory or guess at wildcard grants.
 
@@ -173,6 +194,11 @@ unexpected decision and inspect workload, mixin, global, and organization rules.
 sbx secret set github --sandbox book-github-check
 sbx run --name book-github-check
 ```
+
+Review the interactive binding prompt and authorize only the intended REST API
+destination. `sbx secret ls` confirms storage, not permission to inject a secret.
+Do not substitute a broad `gh auth token` credential for the required
+repository-scoped read-only token.
 
 In another host terminal:
 

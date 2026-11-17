@@ -44,6 +44,8 @@ This creates a new Codex environment, rather than reusing the Pandoc shell templ
 
 The OAuth command authenticates on the host. In v0.51.0, this OAuth credential is global. Authenticate **before creating the sandbox**, so its initial Codex configuration can use the stored credential. An API-key alternative is `sbx secret set openai`, also before creation. Use the method appropriate to your account, without copying credential files into the workspace.
 
+Storing a credential and authorizing its injection are separate steps. Run creation and startup interactively, review the credential destinations requested by the Kit, and approve only the intended use. A message saying "no binding authorizes" a service means its credential was not injected, even if `sbx secret ls` lists it. Re-run the command interactively to review the binding prompt; `--no-input` cannot answer it for you.
+
 If you created the sandbox before authenticating and Codex still asks you to sign in, try removing the sandbox and creating it again:
 
 ```bash
@@ -59,10 +61,10 @@ Read the project README and draft RELEASE-NOTES.md for the upcoming release. Cre
 As the changes are trapped in the sandbox, it needs GitHub access to publish the PR. Your agent will do the changes but will tell you that the PR could not be created. That is because the sandbox has no GitHub credential yet. We could add them now, from the **host**:
 
 ```bash
-$ sbx secret set github --sandbox christmas-codex-fixed -t "$(gh auth token)"
+$ sbx secret set github --sandbox christmas-codex
 ```
 
-But, let's not do that yet. I don't want my agent to go there and delete my GitHub repos mistakenly.
+The prompt accepts a token without putting it in shell history or command arguments. Use a fine-grained token limited to the intended repository and permissions; copying your usual `gh` login token does not narrow its authority. But, let's not do that yet. I don't want my agent to go there and delete my GitHub repos mistakenly.
 
 ## From Templates to Kits
 
@@ -217,9 +219,18 @@ These are runtime rules. Downloads performed while building the local workload a
 
 There is a catch in the workload we have been using. Its installed descriptor grants `api.github.com` and `github.com` without HTTP restrictions. Kit allow lists combine by union: Adding a narrower allow entry does not take an earlier grant away. Our mixin's DELETE denial still wins, but the workload's broad API grant would also permit a PR merge. This is exactly why we inspect the composition [@dockerKitNetworkPolicy].
 
-The companion `scripts/prepare-book-codex.py` derives a local workload from a reviewed installed Codex descriptor. It removes the GitHub host grants, preserves the other capabilities and startup hooks, and supplies a Dockerfile based on that descriptor's Codex version. The mixin then supplies the GitHub permissions. The helper refuses wildcard grants that need manual review, and it does not overwrite an existing output directory.
+The companion `scripts/prepare-book-codex.py` derives a local workload from a reviewed installed Codex descriptor. It removes the GitHub host grants, preserves the other capabilities and startup hooks, and supplies a Dockerfile based on that descriptor's Codex version. It also removes generated `deb/` package entries from `provides`: the Kit builder derives those from the image and rejects them in a source recipe. Agent and tool declarations outside that namespace are preserved. The mixin then supplies the GitHub permissions. The helper refuses wildcard grants that need manual review, and it does not overwrite an existing output directory.
 
-From the book's checkout on the **host**, export the descriptor from the earlier Codex sandbox and prepare the local workload. The helper requires Python 3 and PyYAML:
+From the book's checkout on the **host**, export the descriptor from the earlier Codex sandbox and prepare the local workload. The helper requires Python 3 and PyYAML. Prepare an environment first:
+
+```bash
+$ python3 -m venv .venv-book
+$ . .venv-book/bin/activate
+$ python3 -m pip install PyYAML
+```
+
+If environment creation reports that `ensurepip` is unavailable, install your distribution's venv package (for example, `python3-venv` on Debian/Ubuntu) and retry. Then export and derive the workload:
+
 
 ```bash
 $ sbx exec christmas-codex -- cat /usr/share/sandbox/kit/codex/kit.yaml \
@@ -308,7 +319,7 @@ Start Codex:
 $ sbx run --name christmas-codex-gh
 ```
 
-If you configured a sandbox-scoped OpenAI API key for the earlier sandbox, configure it for this sandbox before starting the agent. A host-side OAuth setup is already available globally.
+If you configured a sandbox-scoped OpenAI API key for the earlier sandbox, configure it for this sandbox before starting the agent. A host-side OAuth setup is stored globally, but the new composition must still be authorized to use it. Review the interactive credential-binding prompts for both services; a stored secret alone does not establish injection.
 
 While the sandbox is running, open another **host** terminal. Check that the tool is installed and that the required read succeeds:
 
@@ -399,6 +410,8 @@ Keep the base image's entrypoint and startup configuration intact. Our Dockerfil
 On the **host**, select the Codex image for your installed sbx release. The image definition in the guest used for this book identifies `dhi.io/codex` version `0.169.0`; check the reference for your release rather than assuming it stays current. From the book's repository root:
 
 ```bash
+$ docker version
+$ docker login dhi.io
 $ docker pull dhi.io/codex:0.169.0
 $ docker image inspect dhi.io/codex:0.169.0 --format '{{json .RepoDigests}}'
 $ docker build \
@@ -407,6 +420,8 @@ $ docker build \
 $ docker image save christmas-codex-tools:1 -o christmas-codex-tools-1.tar
 $ sbx template load christmas-codex-tools-1.tar
 ```
+
+`docker version` must report a server as well as a client. If it cannot reach the socket, start Docker Desktop or your Docker Engine service and check the selected Docker context. On Linux with Docker Desktop installed, `systemctl --user start docker-desktop` starts its user service. A healthy sbx daemon does not imply that this separate host builder is running. Authenticate the host Docker CLI to `dhi.io`; an sbx login does not by itself establish this registry login. If the pull returns 401, resolve registry authentication before building.
 
 Record the base digest and package versions. To pin the base on a later rebuild, pass the reviewed `dhi.io/codex@sha256:...` reference as `BASE_IMAGE`. A digest identifies the base; the apt repositories still change, so this is a repeatable recipe rather than a guarantee of byte-for-byte reproduction.
 

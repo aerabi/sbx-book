@@ -62,6 +62,17 @@ def project(descriptors, method, url):
 
 
 class BookGitHubTests(unittest.TestCase):
+    def test_installed_package_inventory_is_not_reused_as_source_metadata(self):
+        source = deepcopy(WORKLOAD)
+        source["provides"] = [
+            "codex@0.169.0", "deb/bash@5.2.37", "deb/gh@2.104.0",
+            "gh@2.104.0",
+        ]
+        before = deepcopy(source)
+        result, _ = prepare_module.prepare(source)
+        self.assertEqual(result["provides"], ["codex@0.169.0", "gh@2.104.0"])
+        self.assertEqual(source, before)
+
     def test_matrix_after_removing_workload_github_grants(self):
         workload, _ = prepare_module.prepare(WORKLOAD)
         for line in (ROOT / "kits/book-github/policy-cases.tsv").read_text().splitlines():
