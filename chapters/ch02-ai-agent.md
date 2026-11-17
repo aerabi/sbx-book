@@ -9,6 +9,8 @@ Yes! A container with Pandoc and XeLaTeX is perfectly useful for a book build. W
 
 ## Sandboxes vs. Containers
 
+If you run Docker natively, there a thin layer of isolation between the container and the host. The barrier is good enough for a static application. But it's probably too thin for a juggernaut AI agent that can install new tools, run arbitrary commands, and find zero-day exploits. With Docker Desktop, Linux containers already run in a VM. They still share that Docker Engine VM's kernel. See my earlier book, *Docker and Kubernetes Security*, for more on container security.
+
 | Property | Ordinary Docker container | Local Docker Sandbox |
 |----------|---------------------------|----------------------|
 | Kernel | Shares the kernel of the machine or VM running Docker Engine. | Has a separate guest kernel inside a microVM. |
@@ -21,15 +23,13 @@ Yes! A container with Pandoc and XeLaTeX is perfectly useful for a book build. W
 | Our example | Run a known PDF build command. | Let an agent choose commands within defined boundaries. |
 Table: Containers and local Docker Sandboxes for development tasks.
 
-With Docker Desktop, Linux containers already run in a VM. They still share that Docker Engine VM's kernel; this differs from a sandbox's microVM boundary. Neither protects files deliberately mounted read-write from being overwritten. See my earlier book, *Docker and Kubernetes Security*, for more on container security.
-
 There is another limit: A microVM cannot stop an authorized GitHub API request from deleting a repository. That happens on GitHub, not on your laptop.
 
 Let's give an agent a useful job, then deal with that problem.
 
 ## Put Codex to Work
 
-We have been typing every command ourselves. Now we will ask Codex to draft release notes for the upcoming release of *Docker Sandboxes in Action*. We will review the draft against the manuscript before publishing it.
+So, I want to ask my AI agent to build a references section into the book. In your case, you can ask it to draft release notes for your own Git repo. And we're going to use the clone mode, to suffer! So, we need a Git-based project.
 
 From a disposable Git checkout containing a README, run on the **host**:
 
@@ -40,7 +40,7 @@ $ sbx policy ls christmas-codex --wide
 $ sbx run --name christmas-codex
 ```
 
-This creates a new Codex environment, rather than reusing the Pandoc shell template. The task is writing Markdown, so it does not need our PDF tools yet. Clone mode keeps the agent's changes in a private working copy.
+This creates a new Codex environment, rather than reusing the Pandoc shell template. The task is writing Markdown, so it does not need our PDF tools yet. Clone mode keeps the agent's changes in a private working copy. Which means, the edits stay inside the sandbox, until we move them back to the host.
 
 The OAuth command authenticates on the host. In v0.51.0, this OAuth credential is global. Authenticate **before creating the sandbox**, so its initial Codex configuration can use the stored credential. An API-key alternative is `sbx secret set openai`, also before creation. Use the method appropriate to your account, without copying credential files into the workspace.
 
@@ -53,23 +53,22 @@ $ sbx rm christmas-codex
 In the Codex session, enter:
 
 ```text
-Read the project README and draft RELEASE-NOTES.md for the upcoming
-release of Docker Sandboxes in Action. Describe only book content
-supported by the files here. Do not invent a release version or date.
-Create a pull request on GitHub for my review.
+Read the project README and draft RELEASE-NOTES.md for the upcoming release. Create a pull request on GitHub for my review.
 ```
 
-That is the task we want to delegate: Prepare a change and submit it for review. Clone mode keeps edits out of the host working tree. It does not configure GitHub authentication, install every tool, or grant permission to publish a branch. If Codex gets stuck at that point, the request alone will not fix it.
+As the changes are trapped in the sandbox, it needs GitHub access to publish the PR. Your agent will do the changes but will tell you that the PR could not be created. That is because the sandbox has no GitHub credential yet. We could add them now, from the **host**:
 
-We could bind our everyday GitHub token and let the agent figure it out. But that token may carry much more authority than opening a pull request needs. I want a proposal for my book, not an agent with permission to delete it!
+```bash
+$ sbx secret set github --sandbox christmas-codex-fixed -t "$(gh auth token)"
+```
 
-Let's build the missing GitHub integration and define the boundary before trying again. We will also let Codex read closed issues to improve the release notes. Reading an issue, changing a file, and opening a pull request are three different permissions.
+But, let's not do that yet. I don't want my agent to go there and delete my GitHub repos mistakenly.
 
 ## From Templates to Kits
 
-In Chapter 1, our Dockerfile solved the tool-installation problem. Now we have a permissions problem. Codex needs a GitHub client, but installing the client does not tell us what it should be allowed to do.
+In Chapter 1, our Dockerfile solved the tool-installation problem. Now we have a permissions' problem. Codex needs a GitHub client, but installing the client does not tell us what it should be allowed to do.
 
-Our goal is to let Codex propose a release-notes change through a pull request. It needs to read issues, update one file on a working branch, and open the PR. It does not need to merge, delete files or branches, change repository settings, or delete the repository. We will give it the GitHub CLI and grant the API operations needed for that workflow.
+Our goal is to let Codex propose a release-notes change through a pull request. It probably needs to read issues, update one file on a working branch, and open the PR. It does not need to merge, delete files or branches, change repository settings, or delete the repository. We will give it the GitHub CLI and grant the API operations needed for that workflow.
 
 A *workload Kit* provides the base environment and agent. A *mixin* adds tools and declared capabilities. Let's compose the Codex workload with a GitHub CLI mixin, then adapt its permissions to our task. This exercise follows my Kit tutorial and Docker's Kit authoring guide [@arabi2026kits; @dockerKitAuthoring].
 
