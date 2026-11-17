@@ -85,9 +85,61 @@ $ cat gh-mixin/gh.dockerfile
 $ cat gh-mixin/gh-context.md
 ```
 
-Record the commit identifier. That is the version you reviewed. If you clone the repository next Christmas, it may contain different instructions or capabilities! Read all three files before building the mixin. The descriptor declares capabilities, the Dockerfile installs the tool, and the context file supplies instructions to the agent. Each contributes to the environment we are about to run.
+Record the commit identifier. That is the version you reviewed. If you clone the repository next Christmas, it may contain different instructions or capabilities! 
 
-The tutorial's descriptor includes a denial for repository DELETE requests:
+Read all three files under `gh-mixin`. The descriptor declares capabilities, the Dockerfile installs the tool, and the context file supplies instructions to the agent. Each contributes to the environment we are about to run.
+
+The file `gh.yaml` has the following content:
+
+```yaml {.numberLines caption="GitHub CLI mixin descriptor"}
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+displayName: GitHub CLI
+description: gh from nixpkgs, pinned by commit, as a self-contained overlay
+sourceUrl: https://github.com/cli/cli
+licenses: [MIT]
+
+kind: mixin
+
+provides: ["gh@2.101.0"]
+
+capabilities:
+  - type: com.docker.sandbox/network-policy@2
+    config:
+      runtime:
+        allow:
+          - github.com
+          - hosts: [api.github.com]
+            methods: [GET, HEAD, POST, PATCH, PUT, DELETE]
+          - hosts: [uploads.github.com]
+            methods: [POST, PUT]
+        deny:
+          - hosts: [api.github.com]
+            methods: [DELETE]
+            paths: [/repos/**]
+
+  - type: com.docker.sandbox/credential@1
+    description: GitHub API access for gh
+    optional: true
+    config:
+      service: github
+      phase: runtime
+      apiKey:
+        name: GH_TOKEN
+        proxyManaged: true
+        inject:
+          - {domain: api.github.com, header: Authorization, format: "Bearer %s"}
+          - {domain: uploads.github.com, header: Authorization, format: "Bearer %s"}
+          - {domain: github.com, header: Authorization, format: "Bearer %s"}
+
+  - type: com.docker.sandbox/agent-context@1
+    config:
+      contentFile: ./gh-context.md
+
+dockerfile: gh.dockerfile
+```
+
+The descriptor includes a denial for repository DELETE requests:
 
 ```yaml {.numberLines}
         deny:
