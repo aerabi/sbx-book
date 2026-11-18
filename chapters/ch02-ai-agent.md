@@ -34,10 +34,10 @@ So, I want to ask my AI agent to build a references section into the book. In yo
 From a disposable Git checkout containing a README, run on the **host**:
 
 ```bash
-$ sbx secret set openai --oauth
-$ sbx create --name christmas-codex --clone codex .
-$ sbx policy ls christmas-codex --wide
-$ sbx run --name christmas-codex
+% sbx secret set openai --oauth
+% sbx create --name christmas-codex --clone codex .
+% sbx policy ls christmas-codex --wide
+% sbx run --name christmas-codex
 ```
 
 This creates a new Codex environment, rather than reusing the Pandoc shell template. The task is writing Markdown, so it does not need our PDF tools yet. Clone mode keeps the agent's changes in a private working copy. Which means, the edits stay inside the sandbox, until we move them back to the host.
@@ -49,7 +49,7 @@ Storing a credential and authorizing its injection are separate steps. Run creat
 If you created the sandbox before authenticating and Codex still asks you to sign in, try removing the sandbox and creating it again:
 
 ```bash
-$ sbx rm christmas-codex
+% sbx rm christmas-codex
 ```
 
 In the Codex session, enter:
@@ -61,7 +61,7 @@ Read the project README and draft RELEASE-NOTES.md for the upcoming release. Cre
 As the changes are trapped in the sandbox, it needs GitHub access to publish the PR. Your agent will do the changes but will tell you that the PR could not be created. That is because the sandbox has no GitHub credential yet. We could add them now, from the **host**:
 
 ```bash
-$ sbx secret set github --sandbox christmas-codex
+% sbx secret set github --sandbox christmas-codex
 ```
 
 The prompt accepts a token without putting it in shell history or command arguments. Use a fine-grained token limited to the intended repository and permissions; copying your usual `gh` login token does not narrow its authority. But, let's not do that yet. I don't want my agent to go there and delete my GitHub repos mistakenly.
@@ -79,12 +79,12 @@ A *workload Kit* provides the base environment and agent. A *mixin* adds tools a
 On the **host**, clone the companion examples into a directory separate from the disposable project checkout:
 
 ```bash
-$ git clone https://github.com/ContainerSecurity-dev/sbx-examples.git
-$ cd sbx-examples
-$ git rev-parse HEAD
-$ cat gh-mixin/gh.yaml
-$ cat gh-mixin/gh.dockerfile
-$ cat gh-mixin/gh-context.md
+% git clone https://github.com/ContainerSecurity-dev/sbx-examples.git
+% cd sbx-examples
+% git rev-parse HEAD
+% cat gh-mixin/gh.yaml
+% cat gh-mixin/gh.dockerfile
+% cat gh-mixin/gh-context.md
 ```
 
 Record the commit identifier. That is the version you reviewed. If you clone the repository next Christmas, it may contain different instructions or capabilities! 
@@ -224,24 +224,24 @@ The companion `scripts/prepare-book-codex.py` derives a local workload from a re
 From the book's checkout on the **host**, export the descriptor from the earlier Codex sandbox and prepare the local workload. The helper requires Python 3 and PyYAML. Prepare an environment first:
 
 ```bash
-$ python3 -m venv .venv-book
-$ . .venv-book/bin/activate
-$ python3 -m pip install PyYAML
+% python3 -m venv .venv-book
+% . .venv-book/bin/activate
+% python3 -m pip install PyYAML
 ```
 
 If environment creation reports that `ensurepip` is unavailable, install your distribution's venv package (for example, `python3-venv` on Debian/Ubuntu) and retry. Then export and derive the workload:
 
 
 ```bash
-$ sbx exec christmas-codex -- cat /usr/share/sandbox/kit/codex/kit.yaml \
+% sbx exec christmas-codex -- cat /usr/share/sandbox/kit/codex/kit.yaml \
   > /tmp/book-codex-source.yaml
-$ python3 scripts/prepare-book-codex.py \
+% python3 scripts/prepare-book-codex.py \
   /tmp/book-codex-source.yaml build/book-codex
-$ cat build/book-codex/kit.yaml
-$ cat build/book-codex/codex.dockerfile
-$ sbx create --name christmas-codex-gh --clone \
+% cat build/book-codex/kit.yaml
+% cat build/book-codex/codex.dockerfile
+% sbx create --name christmas-codex-gh --clone \
   --kit ./kits/book-github ./build/book-codex .
-$ sbx policy ls christmas-codex-gh --wide
+% sbx policy ls christmas-codex-gh --wide
 ```
 
 Review the generated workload and record the base-image digest before using it. This helper targets the Debian-based DHI Codex descriptor inspected for this book. A different workload version or image family needs another review.
@@ -253,33 +253,33 @@ We create a new sandbox because composition happens at creation time. Its privat
 Before adding a GitHub credential, evaluate the operations our task permits and prohibits. The concrete mixin targets `aerabi/sbx-book`. From the book checkout on the **host**, run the companion check script:
 
 ```bash
-$ sh scripts/check-book-github-policy.sh christmas-codex-gh
+% sh scripts/check-book-github-policy.sh christmas-codex-gh
 ```
 
 The script prints each expected decision and evaluates it with `sbx policy check`; it does not send any of those requests to GitHub. Compare every result with its expectation. It deliberately does not interpret the CLI's exit status as an allow or deny decision. The full request matrix lives in `kits/book-github/policy-cases.tsv`. Key checks include:
 
 ```bash
-$ sbx policy check http --sandbox christmas-codex-gh --method GET \
+% sbx policy check http --sandbox christmas-codex-gh --method GET \
   'https://api.github.com/repos/aerabi/sbx-book/issues?state=closed'
-$ sbx policy check http --sandbox christmas-codex-gh --method PUT \
+% sbx policy check http --sandbox christmas-codex-gh --method PUT \
   'https://api.github.com/repos/aerabi/sbx-book/contents/RELEASE-NOTES.md'
-$ sbx policy check http --sandbox christmas-codex-gh --method POST \
+% sbx policy check http --sandbox christmas-codex-gh --method POST \
   'https://api.github.com/repos/aerabi/sbx-book/pulls'
-$ sbx policy check http --sandbox christmas-codex-gh --method DELETE \
+% sbx policy check http --sandbox christmas-codex-gh --method DELETE \
   'https://api.github.com/repos/aerabi/sbx-book'
-$ sbx policy check http --sandbox christmas-codex-gh --method DELETE \
+% sbx policy check http --sandbox christmas-codex-gh --method DELETE \
   'https://api.github.com/repos/aerabi/sbx-book/contents/RELEASE-NOTES.md'
-$ sbx policy check http --sandbox christmas-codex-gh --method POST \
+% sbx policy check http --sandbox christmas-codex-gh --method POST \
   'https://api.github.com/repos/aerabi/sbx-book/issues'
-$ sbx policy check http --sandbox christmas-codex-gh --method PUT \
+% sbx policy check http --sandbox christmas-codex-gh --method PUT \
   'https://api.github.com/repos/aerabi/sbx-book/pulls/1/merge'
-$ sbx policy check http --sandbox christmas-codex-gh --method PUT \
+% sbx policy check http --sandbox christmas-codex-gh --method PUT \
   'https://api.github.com/repos/aerabi/sbx-book/contents/README.md'
-$ sbx policy check http --sandbox christmas-codex-gh --method POST \
+% sbx policy check http --sandbox christmas-codex-gh --method POST \
   'https://api.github.com/graphql'
-$ sbx policy check http --sandbox christmas-codex-gh --method POST \
+% sbx policy check http --sandbox christmas-codex-gh --method POST \
   'https://github.com/aerabi/sbx-book.git/git-receive-pack'
-$ sbx policy check network --sandbox christmas-codex-gh example.com:443
+% sbx policy check network --sandbox christmas-codex-gh example.com:443
 ```
 
 In the shorter listing above, the first three decisions should be **allow** and every remaining decision should be **deny**. The companion matrix adds checks for other repositories, file writes, branch deletion, and uploads. The Git transport check matters: Permitting unrestricted pushes would give the agent another route around our narrow contents API rule. Also inspect other destinations and credentials available to the workload; these examples do not test every possible route.
@@ -293,10 +293,10 @@ If a decision differs, inspect the active rules before continuing. In particular
 On the **host**, prepare a dedicated branch in your disposable repository. Start from an up-to-date base branch; replace `main` if your repository uses another name:
 
 ```bash
-$ git switch main
-$ git pull --ff-only
-$ git switch -c chore/release-notes
-$ git push -u origin chore/release-notes
+% git switch main
+% git pull --ff-only
+% git switch -c chore/release-notes
+% git push -u origin chore/release-notes
 ```
 
 The host creates the branch so we do not need to give the agent a general ref-creation endpoint. Configure and inspect your protected-branch rules before proceeding. When testing this against the actual private book repository, GitHub reported that `main` was unprotected and that rulesets and branch protection required an upgraded plan or a public repository. That is a missing control, not something the mixin fixes. Until the review boundary is enforced through repository rules or a broker, keep the agent drafting locally and do not bind a write credential for this workflow.
@@ -306,7 +306,7 @@ Create a fine-grained GitHub token limited to the test repository. Grant **Conte
 Bind that credential on the **host**:
 
 ```bash
-$ sbx secret set github --sandbox christmas-codex-gh
+% sbx secret set github --sandbox christmas-codex-gh
 ```
 
 Using `-t "$(gh auth token)"` would reuse your host CLI's token. That is convenient, but it may bring your everyday account's authority into the sandbox. For this exercise, use the restricted credential you just prepared.
@@ -316,7 +316,7 @@ The mixin's proxy-managed binding lets the host proxy authenticate requests with
 Start Codex:
 
 ```bash
-$ sbx run --name christmas-codex-gh
+% sbx run --name christmas-codex-gh
 ```
 
 If you configured a sandbox-scoped OpenAI API key for the earlier sandbox, configure it for this sandbox before starting the agent. A host-side OAuth setup is stored globally, but the new composition must still be authorized to use it. Review the interactive credential-binding prompts for both services; a stored secret alone does not establish injection.
@@ -324,8 +324,8 @@ If you configured a sandbox-scoped OpenAI API key for the earlier sandbox, confi
 While the sandbox is running, open another **host** terminal. Check that the tool is installed and that the required read succeeds:
 
 ```bash
-$ sbx exec christmas-codex-gh -- gh --version
-$ sbx exec christmas-codex-gh -- gh api --method GET \
+% sbx exec christmas-codex-gh -- gh --version
+% sbx exec christmas-codex-gh -- gh api --method GET \
   'repos/aerabi/sbx-book/issues?state=closed&per_page=10'
 ```
 
@@ -410,15 +410,15 @@ Keep the base image's entrypoint and startup configuration intact. Our Dockerfil
 On the **host**, select the Codex image for your installed sbx release. The image definition in the guest used for this book identifies `dhi.io/codex` version `0.169.0`; check the reference for your release rather than assuming it stays current. From the book's repository root:
 
 ```bash
-$ docker version
-$ docker login dhi.io
-$ docker pull dhi.io/codex:0.169.0
-$ docker image inspect dhi.io/codex:0.169.0 --format '{{json .RepoDigests}}'
-$ docker build \
+% docker version
+% docker login dhi.io
+% docker pull dhi.io/codex:0.169.0
+% docker image inspect dhi.io/codex:0.169.0 --format '{{json .RepoDigests}}'
+% docker build \
   --build-arg BASE_IMAGE=dhi.io/codex:0.169.0 \
   -t christmas-codex-tools:1 ./sbx-template
-$ docker image save christmas-codex-tools:1 -o christmas-codex-tools-1.tar
-$ sbx template load christmas-codex-tools-1.tar
+% docker image save christmas-codex-tools:1 -o christmas-codex-tools-1.tar
+% sbx template load christmas-codex-tools-1.tar
 ```
 
 `docker version` must report a server as well as a client. If it cannot reach the socket, start Docker Desktop or your Docker Engine service and check the selected Docker context. On Linux with Docker Desktop installed, `systemctl --user start docker-desktop` starts its user service. A healthy sbx daemon does not imply that this separate host builder is running. Authenticate the host Docker CLI to `dhi.io`; an sbx login does not by itself establish this registry login. If the pull returns 401, resolve registry authentication before building.
@@ -432,10 +432,10 @@ The host's builder downloads the packages. The runtime network rules from the Gi
 Authenticate on the **host** before creating the new sandbox, as in the earlier Codex exercise. Then, from the book's Git checkout:
 
 ```bash
-$ sbx create --name christmas-codex-book --clone \
+% sbx create --name christmas-codex-book --clone \
   --template christmas-codex-tools:1 --pull never codex .
-$ sbx policy ls christmas-codex-book --wide
-$ sbx run --name christmas-codex-book
+% sbx policy ls christmas-codex-book --wide
+% sbx run --name christmas-codex-book
 ```
 
 This is a new sandbox. Preserve any unfinished work before switching to it. Its private clone starts from the host checkout; it does not inherit uncommitted edits from another sandbox. Sandbox-scoped credentials and policy rules also need to be configured for the new name. The template supplies the filesystem, while the workload and runtime configuration supply the surrounding behavior [@dockerKitAuthoring].
@@ -463,7 +463,7 @@ Ask Codex to edit a paragraph, run `make pdf`, and report the result. This check
 Clone mode leaves the PDF inside the sandbox too. Copy the review artifact to the **host**:
 
 ```bash
-$ sbx cp christmas-codex-book:/home/mohammad-ali/Dev/Code/sbx-book/build/pdf/book.pdf \
+% sbx cp christmas-codex-book:/home/mohammad-ali/Dev/Code/sbx-book/build/pdf/book.pdf \
   ./book-review.pdf
 ```
 
@@ -506,7 +506,7 @@ The first three exercises revisit the environment from Chapter 1. The remaining 
 After preserving anything you need, exit interactive sessions and remove only the exercise sandboxes you created across these two chapters. Omit any names you did not create:
 
 ```bash
-$ sbx rm christmas-shell christmas-snapshot christmas-built \
+% sbx rm christmas-shell christmas-snapshot christmas-built \
   christmas-codex christmas-codex-gh christmas-codex-book
 ```
 
