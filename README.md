@@ -1,6 +1,6 @@
 # Docker Sandboxes in Action
 
-> *Secure AI Agents with SBX, Kits, and Cloud, by Mohammad-Ali A'râbi.*
+> *Secure AI Agents with SBX, Kits, and Cloud, by Mohammad-Ali A'RÂBI.*
 
 ---
 
