@@ -43,8 +43,18 @@ $if(titlepage)$
     $if(date)$
     <p class="date">$date$</p>
     $endif$
+    $if(version)$
+    <p>Version $version$</p>
+    $endif$
     $if(rights)$
     <div class="rights">$rights$</div>
+    $endif$
+    $if(license)$
+    <p>Licensed under <a href="https://creativecommons.org/licenses/by-sa/4.0/">$license$</a>.</p>
+    $endif$
+    $if(early-access)$
+    <h2>Early Access</h2>
+    <p>$early-access$</p>
     $endif$
 </section>
 $else$

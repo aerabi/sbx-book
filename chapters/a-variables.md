@@ -7,7 +7,7 @@ frontispiece-caption: The battle for secure realms begins!
 classoption:
   - twoside
   - openright
-lof: true
+lof: false
 lot: true
 lol: true
 listings: true

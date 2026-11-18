@@ -9,7 +9,7 @@ Yes! A container with Pandoc and XeLaTeX is perfectly useful for a book build. W
 
 ## Sandboxes vs. Containers
 
-If you run Docker natively, there a thin layer of isolation between the container and the host. The barrier is good enough for a static application. But it's probably too thin for a juggernaut AI agent that can install new tools, run arbitrary commands, and find zero-day exploits. With Docker Desktop, Linux containers already run in a VM. They still share that Docker Engine VM's kernel. See my earlier book, *Docker and Kubernetes Security*, for more on container security.
+If you run Docker natively, there is a thin layer of isolation between the container and the host. The barrier is good enough for a static application. But it's probably too thin for a juggernaut AI agent that can install new tools, run arbitrary commands, and find zero-day exploits. With Docker Desktop, Linux containers already run in a VM. They still share that Docker Engine VM's kernel. See my earlier book, *Docker and Kubernetes Security*, for more on container security.
 
 | Property | Ordinary Docker container | Local Docker Sandbox |
 |----------|---------------------------|----------------------|
@@ -40,7 +40,7 @@ From a disposable Git checkout containing a README, run on the **host**:
 % sbx run --name christmas-codex
 ```
 
-This creates a new Codex environment, rather than reusing the Pandoc shell template. The task is writing Markdown, so it does not need our PDF tools yet. Clone mode keeps the agent's changes in a private working copy. Which means, the edits stay inside the sandbox, until we move them back to the host.
+This creates a new Codex environment, rather than reusing the Pandoc shell template. The task is writing Markdown, so it does not need our PDF tools yet. Clone mode keeps the agent's changes in a private working copy. Which means the edits stay inside the sandbox until we move them back to the host.
 
 The OAuth command authenticates on the host. In v0.51.0, this OAuth credential is global. Authenticate **before creating the sandbox**, so its initial Codex configuration can use the stored credential. An API-key alternative is `sbx secret set openai`, also before creation. Use the method appropriate to your account, without copying credential files into the workspace.
 
@@ -58,7 +58,9 @@ In the Codex session, enter:
 Read the project README and draft RELEASE-NOTES.md for the upcoming release. Create a pull request on GitHub for my review.
 ```
 
-As the changes are trapped in the sandbox, it needs GitHub access to publish the PR. Your agent will do the changes but will tell you that the PR could not be created. That is because the sandbox has no GitHub credential yet. We could add them now, from the **host**:
+As the changes are trapped in the sandbox, it needs GitHub access to publish the PR. Your agent may make the changes but report that the PR could not be created. That is because the sandbox has no GitHub credential yet. The host command for adding a credential is shown below, but **do not run it yet**. First complete the policy checks and protect the base and release branches, with no bypass for the credential's identity. Use a least-privilege, repository-scoped token. If those branch protections cannot be enforced, stop before enabling write credentials and keep the agent drafting locally. We will prepare these prerequisites later in the chapter.
+
+From the **host**, once those prerequisites are met:
 
 ```bash
 % sbx secret set github --sandbox christmas-codex
@@ -68,7 +70,7 @@ The prompt accepts a token without putting it in shell history or command argume
 
 ## From Templates to Kits
 
-In Chapter 1, our Dockerfile solved the tool-installation problem. Now we have a permissions' problem. Codex needs a GitHub client, but installing the client does not tell us what it should be allowed to do.
+In Chapter 1, our Dockerfile solved the tool-installation problem. Now we have a permissions problem. Codex needs a GitHub client, but installing the client does not tell us what it should be allowed to do.
 
 Our goal is to let Codex propose a release-notes change through a pull request. It probably needs to read issues, update one file on a working branch, and open the PR. It does not need to merge, delete files or branches, change repository settings, or delete the repository. We will give it the GitHub CLI and grant the API operations needed for that workflow.
 
@@ -87,7 +89,7 @@ On the **host**, clone the companion examples into a directory separate from the
 % cat gh-mixin/gh-context.md
 ```
 
-Record the commit identifier. That is the version you reviewed. If you clone the repository next Christmas, it may contain different instructions or capabilities! 
+Record the commit identifier. That is the version you reviewed. If you clone the repository next Christmas, it may contain different instructions or capabilities!
 
 Read all three files under `gh-mixin`. The descriptor declares capabilities, the Dockerfile installs the tool, and the context file supplies instructions to the agent. Each contributes to the environment we are about to run.
 
@@ -299,11 +301,13 @@ On the **host**, prepare a dedicated branch in your disposable repository. Start
 % git push -u origin chore/release-notes
 ```
 
-The host creates the branch so we do not need to give the agent a general ref-creation endpoint. Configure and inspect your protected-branch rules before proceeding. When testing this against the actual private book repository, GitHub reported that `main` was unprotected and that rulesets and branch protection required an upgraded plan or a public repository. That is a missing control, not something the mixin fixes. Until the review boundary is enforced through repository rules or a broker, keep the agent drafting locally and do not bind a write credential for this workflow.
+The host creates the branch so we do not need to give the agent a general ref-creation endpoint. Configure and inspect your protected-branch rules before proceeding. When testing this while the book repository was still private, GitHub reported that `main` was unprotected and that rulesets and branch protection required an upgraded plan or a public repository. That is a missing control, not something the mixin fixes. Until the review boundary is enforced through repository rules or a broker, keep the agent drafting locally and do not bind a write credential for this workflow.
 
 Create a fine-grained GitHub token limited to the test repository. Grant **Contents: Read and write**, **Pull requests: Read and write**, and **Issues: Read**; repository metadata is also needed. Do not grant administration rights. The contents and PR permissions are broader than this task on their own, which is why we combine them with the endpoint policy and protected branches [@githubRestContents; @githubRestPulls].
 
-Bind that credential on the **host**:
+Before binding that write credential, verify that the base and release branches require reviewed PRs and that the token's identity cannot bypass those rules. If your repository cannot enforce this, stop here and keep the token unbound. Passing endpoint-policy checks is not a substitute for branch protection.
+
+Bind that credential on the **host** only after these prerequisites are met:
 
 ```bash
 % sbx secret set github --sandbox christmas-codex-gh
@@ -331,7 +335,7 @@ While the sandbox is running, open another **host** terminal. Check that the too
 
 Unlike the policy checks, the second command sends a real GET request. A successful response verifies this read through the configured tool, transport, and authentication path. It does not verify the write permissions or the protected-branch rules. It returns at most ten entries; it is not a complete release history. The issues endpoint also includes pull requests, identified by a `pull_request` field.
 
-Give Codex a task that accounts for those limits:
+The next step performs real writes and creates an actual PR; it is not a policy simulation or a read test. Proceed only after the prerequisites above and the live read test pass. Give Codex a task that accounts for those limits:
 
 ```text
 Draft RELEASE-NOTES.md for the upcoming release of Docker Sandboxes
@@ -366,7 +370,7 @@ This is closer to what I want from an agent: It can submit a proposal, and I dec
 
 While writing this section, I validated the concrete mixin and the derived workload against the official Kit JSON Schema. The offline checks exercise twenty request cases and reproduce the broad-workload-grant problem. They also check that the helper preserves non-GitHub access and refuses wildcard grants that it cannot safely narrow.
 
-Those are descriptor checks. They do not prove proxy enforcement. The running writing sandbox had neither the host `sbx` CLI nor `/dev/kvm`, so I could not create and test a fresh composed sandbox from inside it. The host check script is the next step, followed by a real repository read. A real PR test must wait until the branch review boundary is enforced. No DELETE request is needed at any stage.
+Those are offline descriptor checks. They do not prove proxy enforcement. In a later host run with sbx v0.51.0, the corrected workload composed successfully and all 21 policy decisions matched expectations: twenty HTTP cases and one network case. These host checks evaluated policy without sending the requests to GitHub. Authenticated live reads and actual PR creation remain unverified for this integration; see `HOST-TEST-RESULTS.md` in the repository. A real PR test must wait until the branch review boundary is enforced. No destructive request is needed at any stage.
 
 This is the idea of *authority as code*: Tools and their requested permissions travel together in a reviewable descriptor [@arabi2026dispatch7]. Updating a Kit therefore calls for reviewing both. A descriptor declares requirements; the sandbox runtime must enforce them.
 
@@ -498,7 +502,7 @@ The first three exercises revisit the environment from Chapter 1. The remaining 
 1. **Prove the mount behavior.** Create a harmless file from `christmas-shell` and locate it on the host. Repeat an edit in a disposable Git repository using clone mode. Explain why the host working tree behaves differently.
 2. **Test the network boundary.** Record the effective policy for one sandbox. Demonstrate a required destination succeeding and an unrelated destination being denied. Explain what you would investigate if both succeed.
 3. **Rebuild the environment.** Produce the sample PDF in the initial sandbox, the saved template, and the Dockerfile-based template. Record the sbx, OS, Pandoc, and XeLaTeX versions. Explain any differences.
-4. **Constrain an agent.** Compose Codex with the adapted GitHub mixin. Prepare a working branch and a restricted credential. Demonstrate that reading issues, updating RELEASE-NOTES.md, and opening a PR are allowed, while repository and file DELETE, issue POST, PR merge, and unrestricted Git push requests are denied. Open a real test PR and inspect its diff. Explain why protected branches and token permissions still matter. Do not send a real DELETE request.
+4. **Constrain an agent.** Compose Codex with the adapted GitHub mixin. Prepare a working branch and verify protected base and release branches with no credential bypass before binding a least-privilege write token. If your repository cannot enforce this, stop before enabling write credentials. Use policy checks to evaluate the allowed reads, file update, and PR creation, and the denied DELETE, issue POST, PR merge, and Git push requests. Then run a live read test. Only after these prerequisites pass, open a real test PR and inspect its diff. Explain why protected branches and token permissions still matter. Do not send real destructive requests.
 5. **Trace an attempted exfiltration.** Suppose a dependency can read a secret in the workspace. Consider an unapproved destination and an approved API that accepts writes. Which controls help in each case? Which permission must be removed to prevent the secret being read at all?
 
 6. **Build the book with Codex.** Use the shared Dockerfile with a compatible Codex base. Record the base digest, build the template, and create a new writing sandbox. Verify the named fonts and compile the actual book with `make pdf`. Copy the PDF to the host. Explain which tools, credentials, and policies came from the template and which required separate configuration.
