@@ -1,0 +1,15 @@
+# syntax=docker/sandbox-kit:3
+schemaVersion: "3"
+kind: mixin
+displayName: Hello network
+description: Allow a sandbox to reach example.com
+
+capabilities:
+  - type: com.docker.sandbox/network-policy@2
+    config:
+      runtime:
+        allow:
+          - hosts: [example.com]
+            methods: [GET, HEAD]
+        deny:
+          - example.org
