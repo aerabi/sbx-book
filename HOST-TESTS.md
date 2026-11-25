@@ -213,7 +213,10 @@ Expected: The CLI is available and both authenticated reads return GitHub
 responses. Preserve error bodies if they fail; a GitHub permissions error
 does not prove that the proxy enforced a denial. Do not print the token.
 
-## Test publication — currently blocked
+## Test publication
+
+Passed on 2026-11-25 after the `protect-main` ruleset was added; see
+[HOST-TEST-RESULTS.md](HOST-TEST-RESULTS.md). The original checklist follows.
 
 The writing-session checks reported `main` as unprotected. GitHub's rulesets
 and branch-protection APIs returned an account-plan limitation for this private
