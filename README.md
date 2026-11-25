@@ -131,6 +131,14 @@ policy, credential binding, agent context, and host test matrix. Follow its
 workload preparation step: the built-in Codex workload's broader GitHub
 grant would otherwise widen the mixin's permissions.
 
+## Cloud release watch
+
+Chapter 3 schedules a daily Codex run in Docker Sandboxes cloud. It follows
+[tasks/release-watch.md](tasks/release-watch.md) and proposes updates to
+[chapters/z-release-watch.md](chapters/z-release-watch.md) through a pull
+request. The job relies on a branch ruleset on `main` with no bypass and a
+fine-grained token limited to this repository.
+
 ## License
 
 This project is licensed under **CC BY-SA 4.0**. See [LICENSE](LICENSE) for

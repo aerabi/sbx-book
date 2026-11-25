@@ -3,12 +3,13 @@ title: Docker Sandboxes in Action
 subtitle: Secure AI Agents with SBX, Kits, and Cloud
 author: Mohammad-Ali A'RÂBI
 publisher: Okterakt Verlag
-version: 0.0.1
+version: 0.0.2
 license: CC BY-SA 4.0
 early-access: >-
-  This is version 0.0.1, containing the first two chapters. Some examples were
-  tested against sbx v0.51.0; other exercises have only undergone static
-  validation or remain untested. SBX evolves rapidly, so commands may change.
+  This is version 0.0.2, containing the first three chapters. Chapters 1 and 2
+  were tested against sbx v0.51.0, with parts of Chapter 2 and all of Chapter 3
+  tested against v0.54.1; other exercises have only undergone static validation
+  or remain untested. The appendix tracks newer sbx releases. SBX evolves rapidly, so commands may change.
   Please report issues at https://github.com/aerabi/sbx-book/issues.
 rights: Copyright © 2026 Mohammad-Ali A'RÂBI
 identifier:

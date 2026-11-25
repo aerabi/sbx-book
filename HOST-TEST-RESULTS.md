@@ -69,3 +69,30 @@ prompt instead of putting a token in command arguments.
 These checks do not resolve the PDF-template registry-login blocker or verify
 real authenticated reads. The manuscript was updated; the PDF was not rebuilt
 as part of this follow-up.
+
+## 2026-11-25 run: Chapter 2 publication and Chapter 3 cloud
+
+Host: macOS on Apple Silicon, sbx v0.54.1, Docker 29.9.3, Codex 0.172.0
+(`dhi.io/codex:0.172.0`). Branch `chapter-3-cloud`.
+
+| Test | Result | Notes |
+|------|--------|-------|
+| Branch ruleset on `main` | Passed | Ruleset `protect-main` (id 28067337): PR required, no force push, no deletion, no bypass actors. A direct contents `PUT` to `main` returned 409 "Changes must be made through a pull request." |
+| Chapter 2 composition on v0.54.1 | Passed | Helper output composed with `kits/book-github`; all 21 policy decisions matched. |
+| Chapter 2 credential binding | Passed after interactive creation | Noninteractive creation prints "no binding authorizes github, openai". The author created the sandbox in a terminal; bindings appeared in `~/.config/sbx/credentials.yaml`. |
+| Chapter 2 authenticated read / denied write | Passed | `GET repos/aerabi/sbx-book` succeeded; `PUT contents/README.md` returned 403 from the proxy. |
+| Chapter 2 publication | Passed | Codex published `RELEASE-NOTES.md` on a working branch and opened PR #3 (closed after review, branch deleted). Policy log: `github.com` denied by mixin, one unmatched `api.github.com` request. |
+| Cloud diagnose | Passed | 6/6 checks. |
+| Cloud default egress | Observed | Account policy `deny-all` with no rules, yet `shell` and `codex` sandboxes created without `--allow-network` reached arbitrary hosts (example.com, wikipedia.org). With `--allow-network`, only the kit rules plus the flag were reachable. |
+| Fine-grained token | Passed | Cloud `github` secret injected as `GH_TOKEN`. Write to another repo returned 404; write to `main` returned 409. |
+| Cloud Codex OAuth | Passed | `codex exec` answered in a cloud sandbox. |
+| `sbx move` of clone-mode sandbox | Passed with caveat | The clone workspace is on a separate volume and is not moved. A `git clone --no-local` copy in `/home/agent` travels; a plain local clone breaks on the alternates path. |
+| Codex session after move | Passed | `codex exec resume --last` did not find the session (cwd differs); resuming by session ID recalled the code word. |
+| Push from moved sandbox | Passed | `gh auth setup-git` then `git push` created a branch (deleted afterwards). |
+| TTL | Passed | `ttl +1h` extended; max remaining 24 h from creation. |
+| Move back to local | Passed after start | A stopped cloud sandbox fails with `failed_precondition`; after starting it, the move succeeded (~1.5 min) with the commit intact. Cloud source stopped, not deleted; template left behind. |
+| Scheduled release watch | Passed | Schedule `dfde2524-…` (paused, `--allow-network api.github.com:443`, BASE_BRANCH `chapter-3-cloud`). Manual run succeeded in ~1 min and opened PR #2 touching only the appendix. Second run (27 s) found the PR and stopped. |
+| Schedule addressing | Observed | Schedule commands require the ID, not the name. |
+
+All probe sandboxes and templates were removed. The schedule is retained,
+paused, for the author to repoint at `main` after this branch merges.

@@ -178,3 +178,58 @@ In another host terminal, check the CLI and make one harmless authenticated read
 ```
 
 A successful GET tests the mixin's credential and network path. The policy matrix tests the allowed and denied requests without carrying them out. This command reuses your host token and its permissions. For a more limited test, create a fine-grained token restricted to the repository and permissions needed, then supply that token instead. The mixin is meant to let Codex propose a change for review, not to merge it.
+
+Storing a secret and letting a sandbox use it are two separate things. When you create a sandbox interactively, sbx asks whether the GitHub and OpenAI credentials may be injected for the declared domains, and records your answer in `~/.config/sbx/credentials.yaml`. In a script without a terminal, nobody answers, so creation prints `no binding authorizes github, openai` and the requests go out unauthenticated. Create the sandbox once from a real terminal.
+
+### Lock the Front Door
+
+The mixin can allow a `PUT` to `RELEASE-NOTES.md`, but it cannot read the request body. The branch name sits in that body. So, the policy alone cannot stop Codex from writing the file straight to `main`.
+
+That job belongs to GitHub. Protect the default branch with a ruleset: Changes only through a pull request, no force pushes, no deletion, and **no bypass actors**. The last point matters. A token acts as the person who created it, and if you are an admin with bypass rights, so is your agent. I created mine with:
+
+```bash
+% gh api -X POST repos/aerabi/sbx-book/rulesets --input ruleset.json
+```
+
+The file contains the three rules above with an empty `bypass_actors` list. To test it, try a direct write to `main` from the sandbox:
+
+```bash
+% sbx exec christmas-codex-gh -- gh api -X PUT \
+  repos/aerabi/sbx-book/contents/RELEASE-NOTES.md \
+  -f message=probe -f content=cHJvYmUK -f branch=main
+```
+
+GitHub answers `409` with "Changes must be made through a pull request." Now two independent controls guard the repository: The sandbox decides which requests may leave, and GitHub decides what an authenticated request may change.
+
+### Publish the Release Notes
+
+Create a working branch on the host and push it, then return to the Codex session:
+
+```bash
+% git push origin HEAD:refs/heads/release-notes-draft
+```
+
+```text
+Read the project README and draft RELEASE-NOTES.md for the upcoming release. Publish it on the existing working branch release-notes-draft and create a pull request into main on GitHub for my review.
+```
+
+In my run with sbx v0.54.1 and Codex 0.172.0, Codex read the README, wrote the file to the branch through the contents API, and opened a pull request in about two minutes. Then it reported the URL and stopped. The sandbox's policy log shows what it tried along the way:
+
+```bash
+% sbx policy log christmas-codex-gh
+```
+
+The log listed `github.com:443` as denied by the mixin and one `api.github.com` request with no matching allow rule. Codex worked around both without asking for more access. Review the pull request like any other contribution. Merging is your job.
+
+## Summary
+
+We moved from a sandbox that runs commands to one that runs an agent. The agent got exactly three things: A workload with its tools, a credential it cannot read, and a network policy that decides which GitHub requests can leave. The mixin carried the GitHub piece, and a test matrix proved the policy before any real request was sent. Where the policy could not see, a branch ruleset took over.
+
+There is one thing this sandbox still can't do: Keep working when I close my laptop. Codex stops with the microVM. And while I wrote this chapter, sbx moved from v0.51.0 to v0.54.1, so the book is already out of date. In Chapter 3, we move a running Codex sandbox to Docker's cloud, and then schedule a daily cloud job that checks for new sbx releases and opens a pull request on this book. Clone mode will matter again, though not the way you might expect.
+
+## Exercises
+
+1. Add a row to `kits/book-github/policy-cases.tsv` that should be denied, such as `PUT` to `chapters/ch02-ai-agent.md`. Run the check script and confirm the decision. Then add a row the mixin should allow but doesn't, and decide whether the mixin or the row is wrong.
+2. Compose `kits/hello-mixin` and `kits/book-github` with the same workload. Which rules does `sbx policy ls --wide` show, and does either mixin weaken the other?
+3. Ask Codex to update `README.md` instead of `RELEASE-NOTES.md`. Read the policy log afterwards. What did it try, and what did it tell you?
+4. Create a sandbox from a script with no terminal and look for the binding message. Then find the entry interactive creation adds to `~/.config/sbx/credentials.yaml`.
